@@ -1,0 +1,174 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  Student
+  Guide
+  Admin
+  Coordinator
+  HOD
+}
+
+enum ProjectStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+enum SubmissionStatus {
+  UnderReview
+  Approved
+  NeedsRevision
+}
+
+enum NotificationStatus {
+  Read
+  Unread
+}
+
+model User {
+  userId    Int      @id @default(autoincrement()) @map("user_id")
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(Student)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  ledGroups        ProjectGroup[]   @relation("GroupLeader")
+  groupMemberships GroupMember[]
+  assignedProjects Project[]        @relation("AssignedGuide")
+  guideReviews     GuideReview[]
+  notifications    Notification[]
+  projectComments  ProjectComment[]
+
+  @@map("users")
+}
+
+model ProjectGroup {
+  groupId   Int      @id @default(autoincrement()) @map("group_id")
+  groupName String   @map("group_name")
+  leaderId  Int      @map("leader_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  leader  User          @relation("GroupLeader", fields: [leaderId], references: [userId])
+  members GroupMember[]
+  projects Project[]
+
+  @@map("project_groups")
+}
+
+model GroupMember {
+  id           Int      @id @default(autoincrement())
+  groupId      Int      @map("group_id")
+  userId       Int      @map("user_id")
+  roleInGroup  String?  @map("role_in_group")
+  addedAt      DateTime @default(now()) @map("added_at")
+
+  // Relations
+  group ProjectGroup @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  user  User         @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+}
+
+model Project {
+  projectId      Int           @id @default(autoincrement()) @map("project_id")
+  groupId        Int           @map("group_id")
+  title          String
+  description    String?       @db.Text
+  status         ProjectStatus @default(Pending)
+  assignedGuide  Int?          @map("assigned_guide")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  group       ProjectGroup     @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  guide       User?            @relation("AssignedGuide", fields: [assignedGuide], references: [userId])
+  submissions Submission[]
+  comments    ProjectComment[]
+
+  @@map("projects")
+}
+
+model Submission {
+  submissionId   Int              @id @default(autoincrement()) @map("submission_id")
+  projectId      Int              @map("project_id")
+  submissionDate DateTime         @default(now()) @map("submission_date")
+  documentUrl    String?          @map("document_url")
+  abstractText   String?          @db.Text @map("abstract_text")
+  status         SubmissionStatus @default(UnderReview)
+
+  // Relations
+  project      Project       @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  aiReviews    AIReview[]
+  guideReviews GuideReview[]
+
+  @@map("submissions")
+}
+
+model AIReview {
+  reviewId     Int      @id @default(autoincrement()) @map("review_id")
+  submissionId Int      @map("submission_id")
+  reviewText   String   @db.Text @map("review_text")
+  rating       Float?
+  suggestions  String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  submission Submission @relation(fields: [submissionId], references: [submissionId], onDelete: Cascade)
+
+  @@map("ai_reviews")
+}
+
+model GuideReview {
+  reviewId     Int      @id @default(autoincrement()) @map("review_id")
+  submissionId Int      @map("submission_id")
+  guideId      Int      @map("guide_id")
+  comments     String?  @db.Text
+  rating       Float?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  submission Submission @relation(fields: [submissionId], references: [submissionId], onDelete: Cascade)
+  guide      User       @relation(fields: [guideId], references: [userId])
+
+  @@map("guide_reviews")
+}
+
+model Notification {
+  notificationId Int                @id @default(autoincrement()) @map("notification_id")
+  userId         Int                @map("user_id")
+  message        String             @db.Text
+  status         NotificationStatus @default(Unread)
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model ProjectComment {
+  commentId Int      @id @default(autoincrement()) @map("comment_id")
+  projectId Int      @map("project_id")
+  userId    Int      @map("user_id")
+  comment   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("project_comments")
+}
+
