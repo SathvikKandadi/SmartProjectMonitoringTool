@@ -103,30 +103,32 @@ function App() {
           }
         />
 
-        {/* Guide/Admin Routes */}
+        {/* Admin Only Routes */}
         <Route
           path="/excel-import"
           element={
-            <ProtectedRoute allowedRoles={['Guide', 'Admin', 'Coordinator', 'HOD']}>
+            <ProtectedRoute allowedRoles={['Admin']}>
               <ExcelImport />
             </ProtectedRoute>
           }
         />
 
+        {/* Guide Only Routes - Only Guides can review */}
+        <Route
+          path="/review-submission/:submissionId"
+          element={
+            <ProtectedRoute allowedRoles={['Guide']}>
+              <GuideReviewSubmission />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Guide/Admin/Coordinator/HOD Routes */}
         <Route
           path="/assigned-projects"
           element={
             <ProtectedRoute allowedRoles={['Guide', 'Admin', 'Coordinator', 'HOD']}>
               <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/review-submission/:submissionId"
-          element={
-            <ProtectedRoute allowedRoles={['Guide', 'Admin', 'Coordinator', 'HOD']}>
-              <GuideReviewSubmission />
             </ProtectedRoute>
           }
         />

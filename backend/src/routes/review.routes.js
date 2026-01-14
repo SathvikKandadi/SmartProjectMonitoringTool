@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const reviewController = require('../controllers/review.controller');
-const { authMiddleware, isGuideOrAdmin } = require('../middleware/auth.middleware');
+const { authMiddleware, isGuide } = require('../middleware/auth.middleware');
 
 // Configure multer for PDF uploads
 const storage = multer.diskStorage({
@@ -39,11 +39,11 @@ router.post('/ai/analyze', reviewController.analyzeAbstract);
 router.post('/ai/analyze-pdf', upload.single('pdf'), reviewController.analyzeAbstractPDF);
 router.get('/ai/submission/:submissionId', reviewController.getAIReviewBySubmission);
 
-// Guide Review Routes
-router.post('/guide', isGuideOrAdmin, reviewController.createGuideReview);
+// Guide Review Routes - Only Guides can create/update/delete reviews
+router.post('/guide', isGuide, reviewController.createGuideReview);
 router.get('/guide/submission/:submissionId', reviewController.getGuideReviewsBySubmission);
-router.put('/guide/:reviewId', isGuideOrAdmin, reviewController.updateGuideReview);
-router.delete('/guide/:reviewId', isGuideOrAdmin, reviewController.deleteGuideReview);
+router.put('/guide/:reviewId', isGuide, reviewController.updateGuideReview);
+router.delete('/guide/:reviewId', isGuide, reviewController.deleteGuideReview);
 
 module.exports = router;
 

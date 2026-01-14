@@ -11,6 +11,14 @@ export const GuideDashboard = () => {
   const [pendingSubmissions, setPendingSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'projects' | 'submissions'>('submissions');
+  
+  // Only Guides can review submissions
+  const isGuide = user?.role === 'Guide';
+  const isCoordinator = user?.role === 'Coordinator' || user?.role === 'HOD' || user?.role === 'Admin';
+  
+  // Year filter for coordinators
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -21,17 +29,27 @@ export const GuideDashboard = () => {
       const { projects } = await projectService.getMyProjects();
       setProjects(projects);
 
-      // Get all submissions from assigned projects that need review
-      const allSubmissions: Submission[] = [];
-      for (const project of projects) {
-        if (project.submissions) {
-          allSubmissions.push(...project.submissions);
-        }
+      // Extract available years from projects for filtering
+      if (isCoordinator && projects.length > 0) {
+        const years = projects.map(p => new Date(p.createdAt).getFullYear());
+        const uniqueYears = Array.from(new Set(years)).sort((a, b) => b - a);
+        setAvailableYears(uniqueYears);
       }
 
-      // Filter for pending submissions (UnderReview status)
-      const pending = allSubmissions.filter(s => s.status === 'UnderReview');
-      setPendingSubmissions(pending);
+      // Only fetch pending submissions for Guides
+      if (isGuide) {
+        // Get all submissions from assigned projects that need review
+        const allSubmissions: Submission[] = [];
+        for (const project of projects) {
+          if (project.submissions) {
+            allSubmissions.push(...project.submissions);
+          }
+        }
+
+        // Filter for pending submissions (UnderReview status)
+        const pending = allSubmissions.filter(s => s.status === 'UnderReview');
+        setPendingSubmissions(pending);
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -39,20 +57,25 @@ export const GuideDashboard = () => {
     }
   };
 
+  // Filter projects by year if coordinator has selected a year
+  const filteredProjects = selectedYear === 'all' 
+    ? projects 
+    : projects.filter(p => new Date(p.createdAt).getFullYear().toString() === selectedYear);
+
   const projectStats = {
-    total: projects.length,
-    pending: projects.filter(p => p.status === 'Pending').length,
-    approved: projects.filter(p => p.status === 'Approved').length,
-    rejected: projects.filter(p => p.status === 'Rejected').length,
+    total: filteredProjects.length,
+    pending: filteredProjects.filter(p => p.status === 'Pending').length,
+    approved: filteredProjects.filter(p => p.status === 'Approved').length,
+    rejected: filteredProjects.filter(p => p.status === 'Rejected').length,
   };
 
   return (
     <div className="container">
       <div style={styles.header}>
         <div>
-          <h1>Guide Dashboard</h1>
+          <h1>{isGuide ? 'Guide Dashboard' : `${user?.role} Dashboard`}</h1>
           <p style={styles.subtitle}>
-            Welcome, {user?.name}! Review and manage your assigned projects
+            Welcome, {user?.name}! {isGuide ? 'Review and manage your assigned projects' : 'View and monitor all projects'}
           </p>
         </div>
       </div>
@@ -65,11 +88,13 @@ export const GuideDashboard = () => {
           <div style={styles.statLabel}>Total Projects</div>
         </div>
 
-        <div className="card" style={styles.statCard}>
-          <div style={styles.statIcon}>⏳</div>
-          <div style={styles.statValue}>{pendingSubmissions.length}</div>
-          <div style={styles.statLabel}>Pending Reviews</div>
-        </div>
+        {isGuide && (
+          <div className="card" style={styles.statCard}>
+            <div style={styles.statIcon}>⏳</div>
+            <div style={styles.statValue}>{pendingSubmissions.length}</div>
+            <div style={styles.statLabel}>Pending Reviews</div>
+          </div>
+        )}
 
         <div className="card" style={styles.statCard}>
           <div style={styles.statIcon}>✅</div>
@@ -84,27 +109,58 @@ export const GuideDashboard = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={styles.tabs}>
-        <button
-          onClick={() => setActiveTab('submissions')}
-          className={activeTab === 'submissions' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm'}
-        >
-          📋 Pending Reviews ({pendingSubmissions.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('projects')}
-          className={activeTab === 'projects' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm'}
-        >
-          📊 All Projects ({projects.length})
-        </button>
-      </div>
+      {/* Year Filter for Coordinators */}
+      {isCoordinator && availableYears.length > 0 && (
+        <div className="card" style={{ marginBottom: '20px' }}>
+          <div style={styles.filterSection}>
+            <label style={styles.filterLabel}>
+              📅 Filter by Year:
+            </label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="btn btn-outline btn-sm"
+              style={{ minWidth: '150px', padding: '8px 12px' }}
+            >
+              <option value="all">All Years</option>
+              {availableYears.map(year => (
+                <option key={year} value={year.toString()}>
+                  {year}
+                </option>
+              ))}
+            </select>
+            {selectedYear !== 'all' && (
+              <span style={styles.filterInfo}>
+                Showing {filteredProjects.length} project(s) from {selectedYear}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tabs - Only show Pending Reviews tab for Guides */}
+      {isGuide && (
+        <div style={styles.tabs}>
+          <button
+            onClick={() => setActiveTab('submissions')}
+            className={activeTab === 'submissions' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm'}
+          >
+            📋 Pending Reviews ({pendingSubmissions.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('projects')}
+            className={activeTab === 'projects' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm'}
+          >
+            📊 All Projects ({projects.length})
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="loading">
           <div className="spinner" />
         </div>
-      ) : activeTab === 'submissions' ? (
+      ) : isGuide && activeTab === 'submissions' ? (
         <div className="card">
           <h2 style={styles.sectionTitle}>Submissions Waiting for Your Review</h2>
           
@@ -165,15 +221,15 @@ export const GuideDashboard = () => {
         </div>
       ) : (
         <div className="card">
-          <h2 style={styles.sectionTitle}>Your Assigned Projects</h2>
+          <h2 style={styles.sectionTitle}>{isGuide ? 'Your Assigned Projects' : 'All Projects'}</h2>
           
-          {projects.length === 0 ? (
+          {filteredProjects.length === 0 ? (
             <div style={styles.emptyState}>
-              <p>No projects assigned yet</p>
+              <p>{selectedYear !== 'all' ? `No projects found for ${selectedYear}` : 'No projects assigned yet'}</p>
             </div>
           ) : (
             <div style={styles.projectGrid}>
-              {projects.map((project) => (
+              {filteredProjects.map((project) => (
                 <Link
                   key={project.projectId}
                   to={`/projects/${project.projectId}`}
@@ -354,6 +410,22 @@ const styles: { [key: string]: React.CSSProperties } = {
   projectMeta: {
     fontSize: '13px',
     color: '#6b7280',
+  },
+  filterSection: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    flexWrap: 'wrap',
+  },
+  filterLabel: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  filterInfo: {
+    fontSize: '14px',
+    color: '#6b7280',
+    fontStyle: 'italic',
   },
 };
 

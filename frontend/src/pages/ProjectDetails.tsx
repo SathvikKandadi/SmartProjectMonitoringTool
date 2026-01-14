@@ -131,7 +131,8 @@ export const ProjectDetails = () => {
   }
 
   const isStudent = user?.role === 'Student';
-  const isGuide = !isStudent;
+  const isGuide = user?.role === 'Guide';
+  const canViewAndComment = !isStudent; // All non-students can view and comment
 
   const handleUpdateProjectStatus = async () => {
     if (!newProjectStatus) return;
@@ -280,7 +281,7 @@ export const ProjectDetails = () => {
           </div>
         )}
         
-        {isGuide && !isEditingProject && (
+        {canViewAndComment && !isEditingProject && (
           <div style={{ marginTop: '24px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
               Update Project Status
@@ -453,6 +454,14 @@ export const ProjectDetails = () => {
                     >
                       ✍️ Add Review
                     </Link>
+                  </div>
+                )}
+
+                {canViewAndComment && !isGuide && !isStudent && (
+                  <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#fef3c7', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '13px', color: '#92400e' }}>
+                      ℹ️ Only Guides can submit reviews. You can view project details and add comments.
+                    </span>
                   </div>
                 )}
 

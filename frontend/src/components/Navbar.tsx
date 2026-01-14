@@ -31,6 +31,7 @@ export const Navbar = () => {
   };
 
   const isStudent = user?.role === 'Student';
+  const isAdmin = user?.role === 'Admin';
 
   return (
     <nav style={styles.nav}>
@@ -60,9 +61,11 @@ export const Navbar = () => {
                   <Link to="/assigned-projects" style={styles.link}>
                     Assigned Projects
                   </Link>
-                  <Link to="/excel-import" style={styles.link}>
-                    Import Data
-                  </Link>
+                  {isAdmin && (
+                    <Link to="/excel-import" style={styles.link}>
+                      Import Data
+                    </Link>
+                  )}
                 </>
               )}
               <Link to="/notifications" style={styles.link}>

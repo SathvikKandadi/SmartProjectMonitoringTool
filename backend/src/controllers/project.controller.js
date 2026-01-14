@@ -179,8 +179,47 @@ const getMyProjects = async (req, res) => {
         },
         orderBy: { createdAt: 'desc' }
       });
+    } else if (userRole === 'Coordinator' || userRole === 'HOD' || userRole === 'Admin') {
+      // Coordinators, HODs, and Admins can see all projects
+      projects = await prisma.project.findMany({
+        include: {
+          group: {
+            include: {
+              leader: {
+                select: {
+                  userId: true,
+                  name: true,
+                  email: true
+                }
+              },
+              members: {
+                include: {
+                  user: {
+                    select: {
+                      userId: true,
+                      name: true,
+                      email: true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          guide: {
+            select: {
+              userId: true,
+              name: true,
+              email: true
+            }
+          },
+          submissions: {
+            orderBy: { submissionDate: 'desc' }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
     } else {
-      // Get projects assigned to guide/admin
+      // Get projects assigned to guide
       projects = await prisma.project.findMany({
         where: {
           assignedGuide: userId

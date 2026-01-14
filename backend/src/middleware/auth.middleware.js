@@ -76,6 +76,11 @@ const roleMiddleware = (allowedRoles) => {
 const isGuideOrAdmin = roleMiddleware(['Guide', 'Admin', 'Coordinator', 'HOD']);
 
 /**
+ * Check if user is a Guide only (for reviewing functionality)
+ */
+const isGuide = roleMiddleware(['Guide']);
+
+/**
  * Check if user is a student
  */
 const isStudent = roleMiddleware(['Student']);
@@ -84,6 +89,7 @@ module.exports = {
   authMiddleware,
   roleMiddleware,
   isGuideOrAdmin,
+  isGuide,
   isStudent
 };
 
