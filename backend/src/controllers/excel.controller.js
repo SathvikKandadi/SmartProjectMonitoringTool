@@ -1,5 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 
@@ -7,10 +7,56 @@ const prisma = new PrismaClient();
 
 const DEFAULT_PASSWORD = 'default@123';
 
+/** Normalize Excel cell value for import (similar to xlsx sheet_to_json primitives) */
+function normalizeCellValue(val) {
+  if (val == null || val === '') return '';
+  if (typeof val === 'object' && val instanceof Date) return val;
+  if (typeof val === 'object' && val.text !== undefined) return val.text;
+  if (typeof val === 'object' && val.richText) {
+    return val.richText.map((t) => t.text).join('');
+  }
+  if (typeof val === 'object' && val.hyperlink && val.text !== undefined) {
+    return val.text;
+  }
+  if (typeof val === 'object' && Object.prototype.hasOwnProperty.call(val, 'result')) {
+    return normalizeCellValue(val.result);
+  }
+  return val;
+}
+
+/** First row = headers; following rows = records (ExcelJS, .xlsx). */
+function worksheetToProjectRows(worksheet) {
+  if (!worksheet || worksheet.rowCount < 2) return [];
+  const headerRow = worksheet.getRow(1);
+  const headerValues = headerRow.values;
+  const keys = [];
+  for (let i = 1; i < (headerValues?.length || 0); i++) {
+    keys[i] = String(headerValues[i] ?? '').trim();
+  }
+  const projectData = [];
+  for (let r = 2; r <= worksheet.rowCount; r++) {
+    const row = worksheet.getRow(r);
+    const rowValues = row.values;
+    const obj = {};
+    let hasData = false;
+    for (let i = 1; i < keys.length; i++) {
+      const k = keys[i];
+      if (!k) continue;
+      const raw = rowValues[i];
+      obj[k] = normalizeCellValue(raw);
+      const s = typeof obj[k] === 'string' ? obj[k] : String(obj[k] ?? '');
+      if (s.trim() !== '') hasData = true;
+    }
+    if (hasData) projectData.push(obj);
+  }
+  return projectData;
+}
+
 /**
  * Import data from Excel file
  * Expected format - Single Sheet "ProjectData":
  * studentName, studentEmail, groupName, leaderEmail, projectTitle, projectDescription, guideEmail
+ * (.xlsx recommended; legacy .xls may not parse with this reader.)
  */
 const importExcel = async (req, res) => {
   try {
@@ -19,8 +65,6 @@ const importExcel = async (req, res) => {
     }
 
     const filePath = req.file.path;
-    const workbook = XLSX.readFile(filePath);
-
     const results = {
       users: { created: 0, skipped: 0, errors: [] },
       groups: { created: 0, skipped: 0, errors: [] },
@@ -28,15 +72,27 @@ const importExcel = async (req, res) => {
       projects: { created: 0, skipped: 0, errors: [] }
     };
 
-    // Check if ProjectData sheet exists
-    if (!workbook.SheetNames.includes('ProjectData')) {
+    let projectData;
+    try {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(filePath);
+      const sheet = workbook.getWorksheet('ProjectData');
+      if (!sheet) {
+        fs.unlinkSync(filePath);
+        return res.status(400).json({
+          error: 'Excel file must contain a sheet named "ProjectData"'
+        });
+      }
+      projectData = worksheetToProjectRows(sheet);
+    } catch (readErr) {
       fs.unlinkSync(filePath);
-      return res.status(400).json({ 
-        error: 'Excel file must contain a sheet named "ProjectData"' 
+      console.error('Excel read error:', readErr);
+      return res.status(400).json({
+        error:
+          'Could not read the spreadsheet. Use a valid .xlsx file with a "ProjectData" sheet.',
+        details: readErr.message
       });
     }
-
-    const projectData = XLSX.utils.sheet_to_json(workbook.Sheets['ProjectData']);
 
     if (projectData.length === 0) {
       fs.unlinkSync(filePath);
@@ -365,17 +421,17 @@ const importExcel = async (req, res) => {
  */
 const downloadTemplate = async (req, res) => {
   try {
-    const workbook = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
 
-    // ProjectData sheet with comprehensive sample data
-    const projectData = [
+    const projectRows = [
       {
         studentName: 'John Doe',
         studentEmail: 'john.doe@college.edu',
         groupName: 'Team Alpha',
         leaderEmail: 'john.doe@college.edu',
         projectTitle: 'AI-Powered Healthcare System',
-        projectDescription: 'A machine learning system for patient diagnosis and healthcare management',
+        projectDescription:
+          'A machine learning system for patient diagnosis and healthcare management',
         guideEmail: 'dr.smith@college.edu'
       },
       {
@@ -384,7 +440,8 @@ const downloadTemplate = async (req, res) => {
         groupName: 'Team Alpha',
         leaderEmail: 'john.doe@college.edu',
         projectTitle: 'AI-Powered Healthcare System',
-        projectDescription: 'A machine learning system for patient diagnosis and healthcare management',
+        projectDescription:
+          'A machine learning system for patient diagnosis and healthcare management',
         guideEmail: 'dr.smith@college.edu'
       },
       {
@@ -393,7 +450,8 @@ const downloadTemplate = async (req, res) => {
         groupName: 'Team Alpha',
         leaderEmail: 'john.doe@college.edu',
         projectTitle: 'AI-Powered Healthcare System',
-        projectDescription: 'A machine learning system for patient diagnosis and healthcare management',
+        projectDescription:
+          'A machine learning system for patient diagnosis and healthcare management',
         guideEmail: 'dr.smith@college.edu'
       },
       {
@@ -402,7 +460,8 @@ const downloadTemplate = async (req, res) => {
         groupName: 'Team Beta',
         leaderEmail: 'alice.brown@college.edu',
         projectTitle: 'Smart City IoT Platform',
-        projectDescription: 'IoT-based smart city management system with real-time monitoring',
+        projectDescription:
+          'IoT-based smart city management system with real-time monitoring',
         guideEmail: 'prof.williams@college.edu'
       },
       {
@@ -411,27 +470,24 @@ const downloadTemplate = async (req, res) => {
         groupName: 'Team Beta',
         leaderEmail: 'alice.brown@college.edu',
         projectTitle: 'Smart City IoT Platform',
-        projectDescription: 'IoT-based smart city management system with real-time monitoring',
+        projectDescription:
+          'IoT-based smart city management system with real-time monitoring',
         guideEmail: 'prof.williams@college.edu'
       }
     ];
 
-    const worksheet = XLSX.utils.json_to_sheet(projectData);
-
-    // Set column widths for better readability
-    worksheet['!cols'] = [
-      { wch: 20 }, // studentName
-      { wch: 25 }, // studentEmail
-      { wch: 15 }, // groupName
-      { wch: 25 }, // leaderEmail
-      { wch: 30 }, // projectTitle
-      { wch: 50 }, // projectDescription
-      { wch: 25 }  // guideEmail
+    const wsData = workbook.addWorksheet('ProjectData');
+    wsData.columns = [
+      { header: 'studentName', key: 'studentName', width: 20 },
+      { header: 'studentEmail', key: 'studentEmail', width: 25 },
+      { header: 'groupName', key: 'groupName', width: 15 },
+      { header: 'leaderEmail', key: 'leaderEmail', width: 25 },
+      { header: 'projectTitle', key: 'projectTitle', width: 30 },
+      { header: 'projectDescription', key: 'projectDescription', width: 50 },
+      { header: 'guideEmail', key: 'guideEmail', width: 25 }
     ];
+    projectRows.forEach((row) => wsData.addRow(row));
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'ProjectData');
-
-    // Add instructions sheet
     const instructions = [
       { Field: 'studentName', Required: 'Yes', Description: 'Full name of the student' },
       { Field: 'studentEmail', Required: 'Yes', Description: 'Email address of the student (must be unique)' },
@@ -450,21 +506,19 @@ const downloadTemplate = async (req, res) => {
       { Field: '6. Students Can Update', Required: '', Description: 'After import, students can login and update project details' }
     ];
 
-    const instructionsSheet = XLSX.utils.json_to_sheet(instructions);
-    instructionsSheet['!cols'] = [
-      { wch: 25 },
-      { wch: 15 },
-      { wch: 70 }
+    const wsInstr = workbook.addWorksheet('Instructions');
+    wsInstr.columns = [
+      { header: 'Field', key: 'Field', width: 25 },
+      { header: 'Required', key: 'Required', width: 15 },
+      { header: 'Description', key: 'Description', width: 70 }
     ];
+    instructions.forEach((row) => wsInstr.addRow(row));
 
-    XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Instructions');
-
-    // Write to buffer
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await workbook.xlsx.writeBuffer();
 
     res.setHeader('Content-Disposition', 'attachment; filename=project-import-template.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buffer);
+    res.send(Buffer.from(buffer));
   } catch (error) {
     console.error('Download template error:', error);
     res.status(500).json({ error: 'Failed to generate template' });

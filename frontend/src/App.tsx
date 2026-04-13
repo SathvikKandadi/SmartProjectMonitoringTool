@@ -13,12 +13,21 @@ import { ProjectDetails } from './pages/ProjectDetails';
 import { ExcelImport } from './pages/ExcelImport';
 import { GuideReviewSubmission } from './pages/GuideReviewSubmission';
 import { GuideDashboard } from './pages/GuideDashboard';
+import { CoordinatorDashboard } from './pages/CoordinatorDashboard';
+import { StaffHomeDashboard } from './pages/StaffHomeDashboard';
 import './App.css';
 
 // Role-based dashboard wrapper
 const RoleDashboard = () => {
   const { user } = useAuthStore();
-  return user?.role === 'Student' ? <Dashboard /> : <GuideDashboard />;
+  if (user?.role === 'Student') return <Dashboard />;
+  if (
+    user?.role === 'Admin' ||
+    user?.role === 'Coordinator' ||
+    user?.role === 'HOD'
+  )
+    return <StaffHomeDashboard />;
+  return <GuideDashboard />;
 };
 
 function App() {
@@ -129,6 +138,17 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['Guide', 'Admin', 'Coordinator', 'HOD']}>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/coordinator"
+          element={
+            <ProtectedRoute
+              allowedRoles={['Admin', 'Coordinator', 'HOD']}
+            >
+              <CoordinatorDashboard />
             </ProtectedRoute>
           }
         />

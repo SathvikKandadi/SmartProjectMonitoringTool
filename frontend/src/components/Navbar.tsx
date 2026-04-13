@@ -32,12 +32,16 @@ export const Navbar = () => {
 
   const isStudent = user?.role === 'Student';
   const isAdmin = user?.role === 'Admin';
+  const isCoordinatorScope =
+    user?.role === 'Admin' ||
+    user?.role === 'Coordinator' ||
+    user?.role === 'HOD';
 
   return (
     <nav style={styles.nav}>
       <div style={styles.container}>
         <Link to="/" style={styles.logo}>
-          📊 Smart Project Monitor
+          Smart Project Monitor
         </Link>
 
         <div style={styles.menu}>
@@ -61,6 +65,11 @@ export const Navbar = () => {
                   <Link to="/assigned-projects" style={styles.link}>
                     Assigned Projects
                   </Link>
+                  {isCoordinatorScope && (
+                    <Link to="/coordinator" style={styles.link}>
+                      Coordinator console
+                    </Link>
+                  )}
                   {isAdmin && (
                     <Link to="/excel-import" style={styles.link}>
                       Import Data
@@ -69,7 +78,7 @@ export const Navbar = () => {
                 </>
               )}
               <Link to="/notifications" style={styles.link}>
-                🔔 Notifications
+                Notifications
                 {unreadCount > 0 && (
                   <span style={styles.badge}>{unreadCount}</span>
                 )}
@@ -98,7 +107,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginBottom: '30px',
   },
   container: {
-    maxWidth: '1200px',
+    maxWidth: '95%',
     margin: '0 auto',
     padding: '0 20px',
     display: 'flex',

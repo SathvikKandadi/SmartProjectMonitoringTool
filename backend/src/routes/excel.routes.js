@@ -20,13 +20,11 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /xlsx|xls/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    
-    if (extname) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.xlsx') {
       return cb(null, true);
     }
-    cb(new Error('Only Excel files (.xlsx, .xls) are allowed'));
+    cb(new Error('Only .xlsx files are allowed (Office Open XML).'));
   }
 });
 
