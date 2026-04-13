@@ -92,10 +92,10 @@ export const ExcelImport = () => {
         )}
 
         <div className="input-group">
-          <label>Select Excel File (.xlsx, .xls)</label>
+          <label>Select Excel file (.xlsx)</label>
           <input
             type="file"
-            accept=".xlsx,.xls"
+            accept=".xlsx"
             onChange={handleFileChange}
             style={styles.fileInput}
           />
